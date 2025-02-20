@@ -1,0 +1,15 @@
+# Ignora arquivos SQL
+*.sql
+
+# Ignora arquivos de texto
+*.txt
+
+# Ignora arquivos JSON
+*.json
+
+# Ignora planilhas Excel
+*.xlsx
+
+# Ignora caches e compilados Python
+__pycache__/
+*.py[cod]
