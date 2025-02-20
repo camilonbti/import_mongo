@@ -345,6 +345,7 @@ class MontagemModel(ModelBase):
 				if(len(tarefa["data_hora_previsto"]) == 0):
 					continue
 
+
 				data_hora_fim      = tarefa["data_hora"][0].get("fim") if len(tarefa["data_hora"]) > 0 else None
 				data_hora_previsto = tarefa["data_hora_previsto"][0].get("fim")
 
