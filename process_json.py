@@ -8,16 +8,16 @@ from datetime import datetime
 import re
 
 def setup_logging():
-    """Configure logging with separate files for general and error logs."""
+    """Configura logging com arquivos separados para logs gerais e de erro."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
-    # General log file
+    # Arquivo de log geral
     log_file = os.path.join(current_dir, f'process_log_{timestamp}.txt')
-    # Error log file specifically for data issues
+    # Arquivo de log específico para erros de dados
     error_log_file = os.path.join(current_dir, f'error_log_{timestamp}.txt')
     
-    # Configure general logger
+    # Configura logger geral
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -27,7 +27,7 @@ def setup_logging():
         ]
     )
     
-    # Configure error logger
+    # Configura logger de erro
     error_logger = logging.getLogger('error_logger')
     error_logger.setLevel(logging.WARNING)
     error_handler = logging.FileHandler(error_log_file, encoding='utf-8')
@@ -37,15 +37,15 @@ def setup_logging():
     return log_file, error_log_file
 
 def sanitize_string(value):
-    """Sanitize string values for SQL insertion."""
+    """Sanitiza valores string para inserção SQL."""
     if value is None:
         return ''
     sanitized = str(value).replace("'", "''")
     sanitized = ''.join(char for char in sanitized if char.isprintable())
-    return sanitized[:120]  # Limit string length to 120 characters
+    return sanitized[:120]  # Limita o tamanho da string para 120 caracteres
 
 def extract_nested_value(data, field_name):
-    """Extract values from nested structures, handling various formats."""
+    """Extrai valores de estruturas aninhadas, tratando vários formatos."""
     if not data:
         return None
         
@@ -63,7 +63,7 @@ def extract_nested_value(data, field_name):
     return data
 
 def safe_int_conversion(value, field_name='unknown', record_info=''):
-    """Safely convert values to integer with detailed error logging."""
+    """Converte valores para inteiro com log detalhado de erros."""
     if value is None:
         return 0
         
@@ -71,8 +71,8 @@ def safe_int_conversion(value, field_name='unknown', record_info=''):
     
     if isinstance(actual_value, dict):
         logging.getLogger('error_logger').warning(
-            f"Complex nested structure for {field_name}: {actual_value}\n"
-            f"Record info: {record_info}"
+            f"Estrutura aninhada complexa para {field_name}: {actual_value}\n"
+            f"Informações do registro: {record_info}"
         )
         return 0
         
@@ -86,22 +86,22 @@ def safe_int_conversion(value, field_name='unknown', record_info=''):
             return int(actual_value)
         else:
             logging.getLogger('error_logger').warning(
-                f"Unexpected type for {field_name}: {type(actual_value)}\n"
-                f"Value: {actual_value}\nRecord info: {record_info}"
+                f"Tipo inesperado para {field_name}: {type(actual_value)}\n"
+                f"Valor: {actual_value}\nInformações do registro: {record_info}"
             )
             return 0
     except (ValueError, TypeError) as e:
         logging.getLogger('error_logger').warning(
-            f"Conversion error for {field_name}: '{actual_value}'\n"
-            f"Error: {str(e)}\nRecord info: {record_info}"
+            f"Erro de conversão para {field_name}: '{actual_value}'\n"
+            f"Erro: {str(e)}\nInformações do registro: {record_info}"
         )
         return 0
 
 def extract_product_info(product, record_info):
-    """Extract and validate product information with detailed logging."""
+    """Extrai e valida informações do produto com log detalhado."""
     if not isinstance(product, dict):
         logging.getLogger('error_logger').warning(
-            f"Invalid product structure: {product}\nRecord info: {record_info}"
+            f"Estrutura de produto inválida: {product}\nInformações do registro: {record_info}"
         )
         return None
     
@@ -135,24 +135,24 @@ def extract_product_info(product, record_info):
     
     if not product_data['id_produto'] or not product_data['produto']:
         logging.getLogger('error_logger').warning(
-            f"Missing critical product data:\n"
+            f"Dados críticos do produto ausentes:\n"
             f"Original: {product}\n"
-            f"Extracted: {product_data}\n"
-            f"Record info: {record_info}"
+            f"Extraído: {product_data}\n"
+            f"Informações do registro: {record_info}"
         )
     
     return product_data
 
 def generate_sql_insert(item, product):
-    """Generate a single SQL INSERT statement with proper formatting and sanitization."""
-    record_info = f"Original structure: {str(item)[:200]}..."
+    """Gera uma instrução SQL INSERT com formatação e sanitização adequadas."""
+    record_info = f"Estrutura original: {str(item)[:200]}..."
     
     cliente_data = item.get("cliente", {})
     if isinstance(cliente_data, dict):
         cliente_nome = sanitize_string(cliente_data.get("nome", ""))
         cpf_cliente = sanitize_string(cliente_data.get("cpf", ""))
     else:
-        logging.getLogger('error_logger').warning(f"Unexpected cliente structure: {cliente_data}")
+        logging.getLogger('error_logger').warning(f"Estrutura de cliente inesperada: {cliente_data}")
         cliente_nome = ""
         cpf_cliente = ""
     
@@ -186,10 +186,10 @@ def generate_sql_insert(item, product):
     
     if values['id_origem'] == 0 or values['id_pedido'] == 0:
         logging.getLogger('error_logger').warning(
-            f"Zero ID detected:\n"
+            f"ID zero detectado:\n"
             f"id_origem: {values['id_origem']}\n"
             f"id_pedido: {values['id_pedido']}\n"
-            f"Original data: {record_info}"
+            f"Dados originais: {record_info}"
         )
     
     sql = (
@@ -215,14 +215,14 @@ def generate_sql_insert(item, product):
     return sql
 
 def create_new_sql_file(base_path, file_number):
-    """Create a new SQL file with transaction control."""
+    """Cria um novo arquivo SQL com controle de transação."""
     file_path = f"{base_path}_{file_number}.sql"
     with open(file_path, "w", encoding="utf-8") as f:
         f.write("SET TRANSACTION;\n\n")
     return file_path
 
 def process_json_to_sql(json_file_path):
-    """Process JSON file and generate multiple SQL files with proper error handling."""
+    """Processa arquivo JSON e gera múltiplos arquivos SQL com tratamento de erro adequado."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_sql_path = os.path.join(current_dir, "script")
     
@@ -240,7 +240,7 @@ def process_json_to_sql(json_file_path):
     current_sql_file = create_new_sql_file(base_sql_path, current_file_number)
     
     try:
-        logging.info(f"Starting JSON processing from: {json_file_path}")
+        logging.info(f"Iniciando processamento do JSON de: {json_file_path}")
         
         with open(json_file_path, 'rb') as json_file:
             parser = ijson.items(json_file, 'item')
@@ -249,19 +249,19 @@ def process_json_to_sql(json_file_path):
                 total_records += 1
                 try:
                     if isinstance(item.get('id_origem'), dict) or isinstance(item.get('id_pedido'), dict):
-                        logging.getLogger('error_logger').info(f"Found nested ID structure: {str(item)[:500]}...")
+                        logging.getLogger('error_logger').info(f"Estrutura de ID aninhada encontrada: {str(item)[:500]}...")
                     
                     produtos = item.get("produtos", [])
                     if not produtos:
                         empty_products_count += 1
-                        logging.getLogger('error_logger').warning(f"No products found in record: {str(item)[:200]}...")
+                        logging.getLogger('error_logger').warning(f"Nenhum produto encontrado no registro: {str(item)[:200]}...")
                         continue
                     
                     records_with_products += 1
                     total_products += len(produtos)
                         
                     for product in produtos:
-                        # Verificar se precisamos criar um novo arquivo
+                        # Verifica se precisamos criar um novo arquivo
                         if records_in_current_file >= 40000:
                             with open(current_sql_file, "a", encoding="utf-8") as f:
                                 f.write("\nCOMMIT WORK;\n")
@@ -282,55 +282,33 @@ def process_json_to_sql(json_file_path):
                         records_in_current_file += 1
                         
                         if processed_count % 1000 == 0:
-                            logging.info(f"Processed {processed_count} records...")
+                            logging.info(f"Processados {processed_count} registros...")
                             
                 except Exception as e:
                     error_count += 1
                     logging.getLogger('error_logger').error(
-                        f"Error processing record:\n"
-                        f"Error: {str(e)}\n"
-                        f"Record data: {str(item)[:500]}..."
+                        f"Erro ao processar registro:\n"
+                        f"Erro: {str(e)}\n"
+                        f"Dados do registro: {str(item)[:500]}..."
                     )
                     continue
         
-        # Fechar o último arquivo SQL
+        # Fecha o último arquivo SQL
         with open(current_sql_file, "a", encoding="utf-8") as f:
             f.write("\nCOMMIT WORK;\n")
         
-        # Log final statistics
-        logging.info("\n=== Processing Statistics ===")
-        logging.info(f"Total records read: {total_records}")
-        logging.info(f"Records with products: {records_with_products}")
-        logging.info(f"Records without products: {empty_products_count}")
-        logging.info(f"Total products found: {total_products}")
-        logging.info(f"Successfully processed products: {processed_count}")
-        logging.info(f"Failed products: {error_count}")
-        logging.info(f"SQL files generated: {current_file_number}")
-        logging.info(f"Base SQL file path: {base_sql_path}")
+        # Log de estatísticas finais
+        logging.info("\n=== Estatísticas de Processamento ===")
+        logging.info(f"Total de registros lidos: {total_records}")
+        logging.info(f"Registros com produtos: {records_with_products}")
+        logging.info(f"Registros sem produtos: {empty_products_count}")
+        logging.info(f"Total de produtos encontrados: {total_products}")
+        logging.info(f"Produtos processados com sucesso: {processed_count}")
+        logging.info(f"Produtos com falha: {error_count}")
+        logging.info(f"Arquivos SQL gerados: {current_file_number}")
+        logging.info(f"Caminho base dos arquivos SQL: {base_sql_path}")
         logging.info("=========================\n")
         
     except Exception as e:
-        logging.error(f"Fatal error processing JSON file: {str(e)}")
+        logging.error(f"Erro fatal ao processar arquivo JSON: {str(e)}")
         raise
-
-def main():
-    """Main execution function with proper error handling."""
-    try:
-        log_file, error_log_file = setup_logging()
-        logging.info(f"Log files created at:\nGeneral log: {log_file}\nError log: {error_log_file}")
-        
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        input_file = os.path.join(current_dir, "montagem.json")
-        
-        if not Path(input_file).exists():
-            logging.error(f"Error: Input file 'montagem.json' not found in {current_dir}")
-            return
-        
-        process_json_to_sql(input_file)
-        
-    except Exception as e:
-        logging.error(f"Fatal error: {str(e)}")
-        raise
-
-if __name__ == "__main__":
-    main()

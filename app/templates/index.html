@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processador MongoDB</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            margin-top: 50px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin: 10px;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Processador MongoDB</h1>
+        <button onclick="testConnection()">Testar Conexão MongoDB</button>
+        <button onclick="window.location.href='/montagens'">Ver Montagens</button>
+        <div id="status" style="display: none;"></div>
+    </div>
+
+    <script>
+        function testConnection() {
+            fetch('/test-connection', {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                const statusDiv = document.getElementById('status');
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = data.message;
+                statusDiv.className = data.success ? 'success' : 'error';
+            })
+            .catch(error => {
+                const statusDiv = document.getElementById('status');
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = 'Erro ao testar conexão';
+                statusDiv.className = 'error';
+            });
+        }
+    </script>
+</body>
+</html>
