@@ -3,9 +3,28 @@ from .database.mongo_connection import MongoConnection
 from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 import logging
+import os
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+# Configuração do logger
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
+# Configura o logger para montagens
+montagens_logger = logging.getLogger('montagens')
+montagens_logger.setLevel(logging.DEBUG)
+
+# Handler para arquivo
+log_file = os.path.join(log_dir, 'montagens.log')
+file_handler = logging.FileHandler(log_file, encoding='utf-8')
+file_handler.setLevel(logging.DEBUG)
+
+# Formato do log
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+# Adiciona o handler ao logger
+montagens_logger.addHandler(file_handler)
 
 main_bp = Blueprint('main', __name__)
 
@@ -27,14 +46,14 @@ def test_connection():
 def get_montagens():
     mongo = None
     try:
-        logger.info("Iniciando busca de montagens...")
+        montagens_logger.info("Iniciando busca de montagens...")
         mongo = MongoConnection()
         db = mongo.connect()
         
         data_inicio = datetime.strptime("2025-02-01T00:00:00.000", "%Y-%m-%dT%H:%M:%S.%f")
-        data_fim = data_inicio + timedelta(days=3)
+        data_fim = datetime.strptime("2025-02-01T00:00:00.000", "%Y-%m-%dT%H:%M:%S.%f")
         
-        logger.info(f"Buscando montagens entre {data_inicio} e {data_fim}")
+        montagens_logger.info(f"Buscando montagens entre {data_inicio} e {data_fim}")
         
         pipeline = [
             {
@@ -118,25 +137,82 @@ def get_montagens():
                     "montador_email": { "$ifNull": ["$montador_info.email", "Não informado"] },
                     "montador_telefone": { "$ifNull": ["$montador_info.telefone", "Não informado"] },
                     "data_cadastro": { "$arrayElemAt": ["$historico_status.data_hora", 0] },
-                    "data_ultima_alteracao": { "$arrayElemAt": ["$historico_status.data_hora", -1] }
+                    "data_ultima_alteracao": { "$arrayElemAt": ["$historico_status.data_hora", -1] },
+                    # Novos campos da tarefa
+                    "tarefa_status": "$tarefa_info.status",
+                    "tarefa_tipo_servico": "$tarefa_info.tipo_servico",
+                    "tarefa_data_hora": "$tarefa_info.data_hora",
+                    "tarefa_data_hora_previsto": "$tarefa_info.data_hora_previsto",
+                    "tarefa_time_execution": "$tarefa_info.time_execution",
+                    "tarefa_last_execution": "$tarefa_info.last_execution",
+                    # Campos calculados do tempo
+                    "tempo_total": {
+                        "$let": {
+                            "vars": {
+                                "primeiro_status": { "$arrayElemAt": ["$historico_status", 0] },
+                                "ultimo_status": { "$arrayElemAt": ["$historico_status", -1] }
+                            },
+                            "in": {
+                                "$concat": [
+                                    { "$toString": {
+                                        "$divide": [
+                                            { "$subtract": [
+                                                { "$dateFromString": { "dateString": "$$ultimo_status.data_hora" } },
+                                                { "$dateFromString": { "dateString": "$$primeiro_status.data_hora" } }
+                                            ]},
+                                            3600000  # Converter para horas
+                                        ]
+                                    }},
+                                    " horas"
+                                ]
+                            }
+                        }
+                    },
+                    # Histórico de status completo
+                    "historico_status": {
+                        "$map": {
+                            "input": "$historico_status",
+                            "as": "status",
+                            "in": {
+                                "guid": "$$status.guid",
+                                "status": "$$status.status",
+                                "data_hora": "$$status.data_hora",
+                                "observacao": "$$status.observacao",
+                                "tpMotivo": "$$status.tpMotivo",
+                                "evidencias": "$$status.evidencias"
+                            }
+                        }
+                    }
                 }
             }
         ]
         
-        logger.info("Executando pipeline do MongoDB...")
-        logger.debug(f"Pipeline: {pipeline}")
+        montagens_logger.info("Executando pipeline do MongoDB...")
+        montagens_logger.debug(f"Pipeline: {pipeline}")
         
         montagens = list(db.montagem.aggregate(pipeline))
-        logger.info(f"Total de montagens encontradas: {len(montagens)}")
+        montagens_logger.info(f"Total de montagens encontradas: {len(montagens)}")
         
         for montagem in montagens:
-            logger.debug(f"""
+            montagens_logger.debug(f"""
 Detalhes da Montagem:
 ID: {montagem.get('montagem_id')}
 Status: {montagem.get('status_montagem')}
 Montador ID: {montagem.get('montador_id')}
 Montador Nome: {montagem.get('montador_nome')}
 Produtos: {montagem.get('produtos', [])}
+
+Informações da Tarefa:
+Status: {montagem.get('tarefa_status')}
+Tipo de Serviço: {montagem.get('tarefa_tipo_servico')}
+Data/Hora Prevista: {montagem.get('tarefa_data_hora_previsto')}
+Última Execução: {montagem.get('tarefa_last_execution')}
+Tempo de Execução: {montagem.get('tarefa_time_execution')}
+
+Histórico de Status:
+{montagem.get('historico_status', [])}
+
+Tempo Total: {montagem.get('tempo_total')}
 """)
         
         if mongo:
@@ -147,7 +223,7 @@ Produtos: {montagem.get('produtos', [])}
                              data_fim=data_fim.strftime("%d/%m/%Y"))
         
     except Exception as e:
-        logger.error(f"Erro ao buscar montagens: {str(e)}", exc_info=True)
+        montagens_logger.error(f"Erro ao buscar montagens: {str(e)}", exc_info=True)
         if mongo:
             mongo.close()
         return jsonify({"error": str(e)}), 500

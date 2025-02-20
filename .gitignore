@@ -10,7 +10,9 @@
 # Ignora planilhas Excel
 *.xlsx
 
+*.log
+
 # Ignora caches e compilados Python
 __pycache__/
 *.py[cod]
-*~*.*
+
